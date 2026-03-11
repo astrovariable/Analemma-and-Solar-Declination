@@ -13,46 +13,35 @@ body{
 font-family:Arial;
 max-width:900px;
 margin:auto;
-padding:12px;
+padding:10px;
 }
 
 canvas{
 border:1px solid black;
-margin-top:20px;
 width:100%;
-height:auto;
 max-width:700px;
 }
 
 input{
-padding:6px;
-margin:4px;
 width:100%;
-box-sizing:border-box;
+padding:6px;
 }
 
 button{
-padding:10px 14px;
-margin:5px;
-width:100%;
-max-width:200px;
+padding:10px;
+margin-top:8px;
+}
+
+.grid{
+display:grid;
+grid-template-columns:repeat(5,1fr);
+gap:10px;
 }
 
 @media (max-width:700px){
-
-div[style*="grid-template-columns"]{
+.grid{
 grid-template-columns:1fr 1fr;
 }
-
-}
-
-.tab{
-margin-bottom:15px;
-}
-
-.active{
-background:#333;
-color:white;
 }
 
 </style>
@@ -63,43 +52,30 @@ color:white;
 
 <h2>Solar Shadow Lab</h2>
 
-<div class="tab">
-
-<button onclick="showPage('daily')" id="dailyBtn" class="active">
-Daily Shadow
-</button>
-
-<button onclick="showPage('analemma')" id="analemmaBtn">
-Analemma
-</button>
-
-</div>
-
-
-<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;max-width:900px;margin-top:15px;">
+<div class="grid">
 
 <div>
-<label>Latitude</label><br>
+<label>Latitude</label>
 <input id="lat" type="number" value="23" step="0.01">
 </div>
 
 <div>
-<label>Longitude</label><br>
+<label>Longitude</label>
 <input id="lon" type="number" value="72" step="0.01">
 </div>
 
 <div>
-<label>Date</label><br>
+<label>Date</label>
 <input id="date" type="date">
 </div>
 
 <div>
-<label>Time</label><br>
+<label>Time</label>
 <input id="time" type="time">
 </div>
 
 <div>
-<label>Gnomon Height (cm)</label><br>
+<label>Gnomon Height (cm)</label>
 <input id="height" type="number" value="20">
 </div>
 
@@ -108,72 +84,49 @@ Analemma
 <br>
 
 <button onclick="drawBoard()">Draw Board</button>
-
 <button onclick="plotDaily()">Plot Daily Shadow</button>
-
 <button onclick="plotAnalemma()">Plot Analemma</button>
+<button onclick="observationWindow()">Observation Window</button>
 
-<div id="output"></div>
+<p id="output"></p>
 
 <canvas id="board" width="700" height="500"></canvas>
 
 <script>
 
-let mode="daily"
+let canvas=document.getElementById("board")
+let ctx=canvas.getContext("2d")
 
-function showPage(m){
+let scale=10
 
-mode=m
+let boardW=29.7*scale
+let boardH=21*scale
 
-dailyBtn.classList.remove("active")
-analemmaBtn.classList.remove("active")
+let originX
+let originY
 
-if(m==="daily") dailyBtn.classList.add("active")
-else analemmaBtn.classList.add("active")
-
-drawBoard()
-
-}
-
-
+let gx
+let gy
 
 function dayOfYear(date){
-
 let start=new Date(date.getFullYear(),0,0)
-let diff=date-start
-let oneDay=1000*60*60*24
-
-return Math.floor(diff/oneDay)
-
+return Math.floor((date-start)/(1000*60*60*24))
 }
-
-
 
 function solarPosition(lat,lon,date,IST){
 
-let N = dayOfYear(date)
+let N=dayOfYear(date)
 
-let gamma = 2*Math.PI/365 * (N - 1 + (IST - 12)/24)
+let gamma=2*Math.PI/365*(N-1+(IST-12)/24)
 
-let EoT =
-229.18 * (
-0.000075
-+ 0.001868*Math.cos(gamma)
--0.032077*Math.sin(gamma)
--0.014615*Math.cos(2*gamma)
--0.040849*Math.sin(2*gamma)
-)
-
-let dec =
+let dec=
 0.006918
 -0.399912*Math.cos(gamma)
 +0.070257*Math.sin(gamma)
 -0.006758*Math.cos(2*gamma)
 +0.000907*Math.sin(2*gamma)
--0.002697*Math.cos(3*gamma)
-+0.00148*Math.sin(3*gamma)
 
-let timeOffset=EoT+4*(lon-82.5)
+let timeOffset=4*(lon-82.5)
 
 let tst=IST*60+timeOffset
 
@@ -183,65 +136,35 @@ let h=H*Math.PI/180
 
 let phi=lat*Math.PI/180
 
-let sinAlt =
-Math.sin(phi)*Math.sin(dec) +
+let sinAlt=
+Math.sin(phi)*Math.sin(dec)+
 Math.cos(phi)*Math.cos(dec)*Math.cos(h)
 
 let alt=Math.asin(sinAlt)
 
-let cosAz =
-(Math.sin(dec)-Math.sin(alt)*Math.sin(phi)) /
+let cosAz=
+(Math.sin(dec)-Math.sin(alt)*Math.sin(phi))/
 (Math.cos(alt)*Math.cos(phi))
 
 let az=Math.acos(cosAz)
 
 if(H>0) az=2*Math.PI-az
 
-return {alt:alt,az:az}
-
+return{alt:alt,az:az}
 }
-
-
 
 function drawBoard(){
 
-let canvas=document.getElementById("board")
-let ctx=canvas.getContext("2d")
-
 ctx.clearRect(0,0,canvas.width,canvas.height)
 
-let scale=10
-let originX=(canvas.width-boardW)/2
-let originY=(canvas.height-boardH)/2
-let boardW
-let boardH
+originX=(canvas.width-boardW)/2
+originY=(canvas.height-boardH)/2
 
-let gx
-let gy
-
-
-if(mode==="daily"){
-
-boardW=29.7*scale
-boardH=21*scale
+ctx.strokeStyle="blue"
+ctx.strokeRect(originX,originY,boardW,boardH)
 
 gx=originX+(29.7-14.8)*scale
 gy=originY+14*scale
-
-}
-
-else{
-
-boardW=21*scale
-boardH=29.7*scale
-
-gx=originX+14*scale
-gy=originY+19.8*scale
-
-}
-
-
-ctx.strokeRect(originX,originY,boardW,boardH)
 
 ctx.fillStyle="red"
 
@@ -249,45 +172,28 @@ ctx.beginPath()
 ctx.arc(gx,gy,5,0,2*Math.PI)
 ctx.fill()
 
-window.boardData={
-gx,gy,originX,originY,scale,boardW,boardH
 }
-
-}
-
-
 
 function plotDaily(){
 
-if(mode!=="daily") return
-
 drawBoard()
 
-let lat=parseFloat(latInput.value)
-let lon=parseFloat(lonInput.value)
+let lat=parseFloat(lat.value)
+let lon=parseFloat(lon.value)
 let height=parseFloat(heightInput.value)
 
-let dateStr=dateInput.value
-if(!dateStr) return
+let d=new Date(date.value)
 
-let d=new Date(dateStr)
-
-let ctx=board.getContext("2d")
-
-ctx.strokeStyle="blue"
-
+ctx.strokeStyle="green"
 ctx.beginPath()
 
 for(let t=6*60;t<=18*60;t+=5){
 
-let hour=Math.floor(t/60)
-let minute=t%60
-
-let IST=hour+minute/60
+let IST=t/60
 
 let pos=solarPosition(lat,lon,d,IST)
 
-if(pos.alt<=0) continue
+if(pos.alt<=0)continue
 
 let L=height/Math.tan(pos.alt)
 
@@ -296,42 +202,31 @@ let saz=pos.az+Math.PI
 let x=L*Math.sin(saz)
 let y=L*Math.cos(saz)
 
-let px=boardData.gx+x*boardData.scale
-let py=boardData.gy-y*boardData.scale
+let px=gx+x*scale
+let py=gy-y*scale
 
-let left=boardData.originX
-let right=boardData.originX+boardData.boardW
-let top=boardData.originY
-let bottom=boardData.originY+boardData.boardH
+if(px>originX && px<originX+boardW && py>originY && py<originY+boardH){
 
-if(px>=left && px<=right && py>=top && py<=bottom){
 ctx.lineTo(px,py)
+
 }
+
 }
 
 ctx.stroke()
 
 }
 
-
-
 function plotAnalemma(){
-
-if(mode!=="analemma") return
 
 drawBoard()
 
-let lat=parseFloat(latInput.value)
-let lon=parseFloat(lonInput.value)
+let lat=parseFloat(lat.value)
+let lon=parseFloat(lon.value)
 let height=parseFloat(heightInput.value)
 
-let timeStr=timeInput.value
-if(!timeStr) return
-
-let t=timeStr.split(":")
+let t=time.value.split(":")
 let IST=parseFloat(t[0])+parseFloat(t[1])/60
-
-let ctx=board.getContext("2d")
 
 ctx.fillStyle="green"
 
@@ -342,7 +237,7 @@ d.setDate(N)
 
 let pos=solarPosition(lat,lon,d,IST)
 
-if(pos.alt<=0) continue
+if(pos.alt<=0)continue
 
 let L=height/Math.tan(pos.alt)
 
@@ -351,8 +246,10 @@ let saz=pos.az+Math.PI
 let x=L*Math.sin(saz)
 let y=L*Math.cos(saz)
 
-let px=boardData.gx+x*boardData.scale
-let py=boardData.gy-y*boardData.scale
+let px=gx+x*scale
+let py=gy-y*scale
+
+if(px>originX && px<originX+boardW && py>originY && py<originY+boardH){
 
 ctx.beginPath()
 ctx.arc(px,py,2,0,2*Math.PI)
@@ -362,13 +259,67 @@ ctx.fill()
 
 }
 
+}
 
+function observationWindow(){
+
+let lat=parseFloat(latInput.value)
+let lon=parseFloat(lonInput.value)
+let height=parseFloat(heightInput.value)
+
+let d=new Date(dateInput.value)
+
+let start=null
+let end=null
+
+for(let t=6*60;t<=18*60;t++){
+
+let IST=t/60
+
+let pos=solarPosition(lat,lon,d,IST)
+
+if(pos.alt<=0)continue
+
+let L=height/Math.tan(pos.alt)
+
+let saz=pos.az+Math.PI
+
+let x=L*Math.sin(saz)
+let y=L*Math.cos(saz)
+
+let px=gx+x*scale
+let py=gy-y*scale
+
+if(px>originX && px<originX+boardW && py>originY && py<originY+boardH){
+
+if(start===null)start=t
+end=t
+
+}
+
+}
+
+if(start===null){
+output.innerText="Shadow never fully inside board."
+return
+}
+
+let sh=Math.floor(start/60)
+let sm=start%60
+
+let eh=Math.floor(end/60)
+let em=end%60
+
+output.innerText="Observation Window: "+sh+":"+String(sm).padStart(2,"0")+" → "+eh+":"+String(em).padStart(2,"0")
+
+}
 
 let latInput=document.getElementById("lat")
 let lonInput=document.getElementById("lon")
 let dateInput=document.getElementById("date")
 let timeInput=document.getElementById("time")
 let heightInput=document.getElementById("height")
+let output=document.getElementById("output")
 
 drawBoard()
 
