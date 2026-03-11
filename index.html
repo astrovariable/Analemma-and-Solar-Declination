@@ -16,10 +16,14 @@ margin:auto;
 padding:10px;
 }
 
-canvas{
-border:1px solid black;
-width:100%;
-max-width:700px;
+.grid{
+display:grid;
+grid-template-columns:repeat(5,1fr);
+gap:10px;
+}
+
+@media (max-width:700px){
+.grid{grid-template-columns:1fr 1fr;}
 }
 
 input{
@@ -29,19 +33,14 @@ padding:6px;
 
 button{
 padding:10px;
-margin-top:8px;
+margin-top:6px;
 }
 
-.grid{
-display:grid;
-grid-template-columns:repeat(5,1fr);
-gap:10px;
-}
-
-@media (max-width:700px){
-.grid{
-grid-template-columns:1fr 1fr;
-}
+canvas{
+border:1px solid black;
+width:100%;
+max-width:700px;
+margin-top:15px;
 }
 
 </style>
@@ -94,8 +93,15 @@ grid-template-columns:1fr 1fr;
 
 <script>
 
-let canvas=document.getElementById("board")
-let ctx=canvas.getContext("2d")
+const canvas=document.getElementById("board")
+const ctx=canvas.getContext("2d")
+
+const latInput=document.getElementById("lat")
+const lonInput=document.getElementById("lon")
+const dateInput=document.getElementById("date")
+const timeInput=document.getElementById("time")
+const heightInput=document.getElementById("height")
+const output=document.getElementById("output")
 
 let scale=10
 
@@ -104,7 +110,6 @@ let boardH=21*scale
 
 let originX
 let originY
-
 let gx
 let gy
 
@@ -131,9 +136,7 @@ let timeOffset=4*(lon-82.5)
 let tst=IST*60+timeOffset
 
 let H=tst/4-180
-
 let h=H*Math.PI/180
-
 let phi=lat*Math.PI/180
 
 let sinAlt=
@@ -150,7 +153,8 @@ let az=Math.acos(cosAz)
 
 if(H>0) az=2*Math.PI-az
 
-return{alt:alt,az:az}
+return{alt,az}
+
 }
 
 function drawBoard(){
@@ -167,25 +171,35 @@ gx=originX+(29.7-14.8)*scale
 gy=originY+14*scale
 
 ctx.fillStyle="red"
-
 ctx.beginPath()
 ctx.arc(gx,gy,5,0,2*Math.PI)
 ctx.fill()
 
 }
 
+function insideBoard(px,py){
+return(
+px>originX &&
+px<originX+boardW &&
+py>originY &&
+py<originY+boardH
+)
+}
+
 function plotDaily(){
 
 drawBoard()
 
-let lat=parseFloat(lat.value)
-let lon=parseFloat(lon.value)
+let lat=parseFloat(latInput.value)
+let lon=parseFloat(lonInput.value)
 let height=parseFloat(heightInput.value)
 
-let d=new Date(date.value)
+let d=new Date(dateInput.value)
 
 ctx.strokeStyle="green"
 ctx.beginPath()
+
+let first=true
 
 for(let t=6*60;t<=18*60;t+=5){
 
@@ -205,9 +219,14 @@ let y=L*Math.cos(saz)
 let px=gx+x*scale
 let py=gy-y*scale
 
-if(px>originX && px<originX+boardW && py>originY && py<originY+boardH){
+if(insideBoard(px,py)){
 
+if(first){
+ctx.moveTo(px,py)
+first=false
+}else{
 ctx.lineTo(px,py)
+}
 
 }
 
@@ -221,11 +240,11 @@ function plotAnalemma(){
 
 drawBoard()
 
-let lat=parseFloat(lat.value)
-let lon=parseFloat(lon.value)
+let lat=parseFloat(latInput.value)
+let lon=parseFloat(lonInput.value)
 let height=parseFloat(heightInput.value)
 
-let t=time.value.split(":")
+let t=timeInput.value.split(":")
 let IST=parseFloat(t[0])+parseFloat(t[1])/60
 
 ctx.fillStyle="green"
@@ -249,7 +268,7 @@ let y=L*Math.cos(saz)
 let px=gx+x*scale
 let py=gy-y*scale
 
-if(px>originX && px<originX+boardW && py>originY && py<originY+boardH){
+if(insideBoard(px,py)){
 
 ctx.beginPath()
 ctx.arc(px,py,2,0,2*Math.PI)
@@ -290,7 +309,7 @@ let y=L*Math.cos(saz)
 let px=gx+x*scale
 let py=gy-y*scale
 
-if(px>originX && px<originX+boardW && py>originY && py<originY+boardH){
+if(insideBoard(px,py)){
 
 if(start===null)start=t
 end=t
@@ -300,26 +319,22 @@ end=t
 }
 
 if(start===null){
-output.innerText="Shadow never fully inside board."
+output.innerText="Shadow never fully inside board"
 return
 }
 
 let sh=Math.floor(start/60)
 let sm=start%60
-
 let eh=Math.floor(end/60)
 let em=end%60
 
-output.innerText="Observation Window: "+sh+":"+String(sm).padStart(2,"0")+" → "+eh+":"+String(em).padStart(2,"0")
+output.innerText=
+"Observation Window: "+
+sh+":"+String(sm).padStart(2,"0")+
+" → "+
+eh+":"+String(em).padStart(2,"0")
 
 }
-
-let latInput=document.getElementById("lat")
-let lonInput=document.getElementById("lon")
-let dateInput=document.getElementById("date")
-let timeInput=document.getElementById("time")
-let heightInput=document.getElementById("height")
-let output=document.getElementById("output")
 
 drawBoard()
 
