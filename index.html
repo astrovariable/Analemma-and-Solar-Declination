@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Solar Shadow Lab</title>
+
+<style>
+
+body{
+font-family:Arial;
+max-width:900px;
+margin:auto;
+padding:20px;
+}
+
+button{
+padding:8px 14px;
+margin:5px;
+}
+
+input{
+padding:6px;
+margin:4px;
+}
+
+canvas{
+border:1px solid black;
+margin-top:20px;
+}
+
+.tab{
+margin-bottom:15px;
+}
+
+.active{
+background:#333;
+color:white;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<h2>Solar Shadow Lab</h2>
+
+<div class="tab">
+
+<button onclick="showPage('daily')" id="dailyBtn" class="active">
+Daily Shadow
+</button>
+
+<button onclick="showPage('analemma')" id="analemmaBtn">
+Analemma
+</button>
+
+</div>
+
+
+<label>Latitude</label>
+<input id="lat" type="number" value="23" step="0.01">
+
+<label>Longitude</label>
+<input id="lon" type="number" value="72" step="0.01">
+
+<label>Date</label>
+<input id="date" type="date">
+
+<label>Time</label>
+<input id="time" type="time">
+
+<label>Gnomon Height (cm)</label>
+<input id="height" type="number" value="20">
+
+<br>
+
+<button onclick="drawBoard()">Draw Board</button>
+
+<button onclick="plotDaily()">Plot Daily Shadow</button>
+
+<button onclick="plotAnalemma()">Plot Analemma</button>
+
+<div id="output"></div>
+
+<canvas id="board" width="700" height="500"></canvas>
+
+<script>
+
+let mode="daily"
+
+function showPage(m){
+
+mode=m
+
+dailyBtn.classList.remove("active")
+analemmaBtn.classList.remove("active")
+
+if(m==="daily") dailyBtn.classList.add("active")
+else analemmaBtn.classList.add("active")
+
+drawBoard()
+
+}
+
+
+
+function dayOfYear(date){
+
+let start=new Date(date.getFullYear(),0,0)
+let diff=date-start
+let oneDay=1000*60*60*24
+
+return Math.floor(diff/oneDay)
+
+}
+
+
+
+function solarPosition(lat,lon,date,IST){
+
+let N = dayOfYear(date)
+
+let gamma = 2*Math.PI/365 * (N - 1 + (IST - 12)/24)
+
+let EoT =
+229.18 * (
+0.000075
++ 0.001868*Math.cos(gamma)
+-0.032077*Math.sin(gamma)
+-0.014615*Math.cos(2*gamma)
+-0.040849*Math.sin(2*gamma)
+)
+
+let dec =
+0.006918
+-0.399912*Math.cos(gamma)
++0.070257*Math.sin(gamma)
+-0.006758*Math.cos(2*gamma)
++0.000907*Math.sin(2*gamma)
+-0.002697*Math.cos(3*gamma)
++0.00148*Math.sin(3*gamma)
+
+let timeOffset=EoT+4*(lon-82.5)
+
+let tst=IST*60+timeOffset
+
+let H=tst/4-180
+
+let h=H*Math.PI/180
+
+let phi=lat*Math.PI/180
+
+let sinAlt =
+Math.sin(phi)*Math.sin(dec) +
+Math.cos(phi)*Math.cos(dec)*Math.cos(h)
+
+let alt=Math.asin(sinAlt)
+
+let cosAz =
+(Math.sin(dec)-Math.sin(alt)*Math.sin(phi)) /
+(Math.cos(alt)*Math.cos(phi))
+
+let az=Math.acos(cosAz)
+
+if(H>0) az=2*Math.PI-az
+
+return {alt:alt,az:az}
+
+}
+
+
+
+function drawBoard(){
+
+let canvas=document.getElementById("board")
+let ctx=canvas.getContext("2d")
+
+ctx.clearRect(0,0,canvas.width,canvas.height)
+
+let scale=10
+
+let originX=80
+let originY=60
+
+let boardW
+let boardH
+
+let gx
+let gy
+
+
+if(mode==="daily"){
+
+boardW=29.7*scale
+boardH=21*scale
+
+gx=originX+(29.7-14.8)*scale
+gy=originY+14*scale
+
+}
+
+else{
+
+boardW=21*scale
+boardH=29.7*scale
+
+gx=originX+14*scale
+gy=originY+19.8*scale
+
+}
+
+
+ctx.strokeRect(originX,originY,boardW,boardH)
+
+ctx.fillStyle="red"
+
+ctx.beginPath()
+ctx.arc(gx,gy,5,0,2*Math.PI)
+ctx.fill()
+
+window.boardData={gx,gy,originX,originY,scale}
+
+}
+
+
+
+function plotDaily(){
+
+if(mode!=="daily") return
+
+drawBoard()
+
+let lat=parseFloat(latInput.value)
+let lon=parseFloat(lonInput.value)
+let height=parseFloat(heightInput.value)
+
+let dateStr=dateInput.value
+if(!dateStr) return
+
+let d=new Date(dateStr)
+
+let ctx=board.getContext("2d")
+
+ctx.strokeStyle="blue"
+
+ctx.beginPath()
+
+for(let t=6*60;t<=18*60;t+=5){
+
+let hour=Math.floor(t/60)
+let minute=t%60
+
+let IST=hour+minute/60
+
+let pos=solarPosition(lat,lon,d,IST)
+
+if(pos.alt<=0) continue
+
+let L=height/Math.tan(pos.alt)
+
+let saz=pos.az+Math.PI
+
+let x=L*Math.sin(saz)
+let y=L*Math.cos(saz)
+
+let px=boardData.gx+x*boardData.scale
+let py=boardData.gy-y*boardData.scale
+
+ctx.lineTo(px,py)
+
+}
+
+ctx.stroke()
+
+}
+
+
+
+function plotAnalemma(){
+
+if(mode!=="analemma") return
+
+drawBoard()
+
+let lat=parseFloat(latInput.value)
+let lon=parseFloat(lonInput.value)
+let height=parseFloat(heightInput.value)
+
+let timeStr=timeInput.value
+if(!timeStr) return
+
+let t=timeStr.split(":")
+let IST=parseFloat(t[0])+parseFloat(t[1])/60
+
+let ctx=board.getContext("2d")
+
+ctx.fillStyle="green"
+
+for(let N=1;N<=365;N++){
+
+let d=new Date(2026,0)
+d.setDate(N)
+
+let pos=solarPosition(lat,lon,d,IST)
+
+if(pos.alt<=0) continue
+
+let L=height/Math.tan(pos.alt)
+
+let saz=pos.az+Math.PI
+
+let x=L*Math.sin(saz)
+let y=L*Math.cos(saz)
+
+let px=boardData.gx+x*boardData.scale
+let py=boardData.gy-y*boardData.scale
+
+ctx.beginPath()
+ctx.arc(px,py,2,0,2*Math.PI)
+ctx.fill()
+
+}
+
+}
+
+
+
+let latInput=document.getElementById("lat")
+let lonInput=document.getElementById("lon")
+let dateInput=document.getElementById("date")
+let timeInput=document.getElementById("time")
+let heightInput=document.getElementById("height")
+
+drawBoard()
+
+</script>
+
+</body>
+</html>
