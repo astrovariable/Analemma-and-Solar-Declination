@@ -13,22 +13,37 @@ body{
 font-family:Arial;
 max-width:900px;
 margin:auto;
-padding:20px;
-}
-
-button{
-padding:8px 14px;
-margin:5px;
-}
-
-input{
-padding:6px;
-margin:4px;
+padding:12px;
 }
 
 canvas{
 border:1px solid black;
 margin-top:20px;
+width:100%;
+height:auto;
+max-width:700px;
+}
+
+input{
+padding:6px;
+margin:4px;
+width:100%;
+box-sizing:border-box;
+}
+
+button{
+padding:10px 14px;
+margin:5px;
+width:100%;
+max-width:200px;
+}
+
+@media (max-width:700px){
+
+div[style*="grid-template-columns"]{
+grid-template-columns:1fr 1fr;
+}
+
 }
 
 .tab{
@@ -196,10 +211,8 @@ let ctx=canvas.getContext("2d")
 ctx.clearRect(0,0,canvas.width,canvas.height)
 
 let scale=10
-
-let originX=80
-let originY=60
-
+let originX=(canvas.width-boardW)/2
+let originY=(canvas.height-boardH)/2
 let boardW
 let boardH
 
@@ -236,7 +249,9 @@ ctx.beginPath()
 ctx.arc(gx,gy,5,0,2*Math.PI)
 ctx.fill()
 
-window.boardData={gx,gy,originX,originY,scale}
+window.boardData={
+gx,gy,originX,originY,scale,boardW,boardH
+}
 
 }
 
@@ -284,8 +299,14 @@ let y=L*Math.cos(saz)
 let px=boardData.gx+x*boardData.scale
 let py=boardData.gy-y*boardData.scale
 
-ctx.lineTo(px,py)
+let left=boardData.originX
+let right=boardData.originX+boardData.boardW
+let top=boardData.originY
+let bottom=boardData.originY+boardData.boardH
 
+if(px>=left && px<=right && py>=top && py<=bottom){
+ctx.lineTo(px,py)
+}
 }
 
 ctx.stroke()
