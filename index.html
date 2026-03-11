@@ -13,34 +13,31 @@ body{
 font-family:Arial;
 max-width:900px;
 margin:auto;
-padding:10px;
-}
-
-.grid{
-display:grid;
-grid-template-columns:repeat(5,1fr);
-gap:10px;
-}
-
-@media (max-width:700px){
-.grid{grid-template-columns:1fr 1fr;}
-}
-
-input{
-width:100%;
-padding:6px;
+padding:20px;
 }
 
 button{
-padding:10px;
-margin-top:6px;
+padding:8px 14px;
+margin:5px;
+}
+
+input{
+padding:6px;
+margin:4px;
 }
 
 canvas{
 border:1px solid black;
-width:100%;
-max-width:700px;
-margin-top:15px;
+margin-top:20px;
+}
+
+.tab{
+margin-bottom:15px;
+}
+
+.active{
+background:#333;
+color:white;
 }
 
 </style>
@@ -51,30 +48,43 @@ margin-top:15px;
 
 <h2>Solar Shadow Lab</h2>
 
-<div class="grid">
+<div class="tab">
+
+<button onclick="showPage('daily')" id="dailyBtn" class="active">
+Daily Shadow
+</button>
+
+<button onclick="showPage('analemma')" id="analemmaBtn">
+Analemma
+</button>
+
+</div>
+
+
+<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;max-width:900px;margin-top:15px;">
 
 <div>
-<label>Latitude</label>
+<label>Latitude</label><br>
 <input id="lat" type="number" value="23" step="0.01">
 </div>
 
 <div>
-<label>Longitude</label>
+<label>Longitude</label><br>
 <input id="lon" type="number" value="72" step="0.01">
 </div>
 
 <div>
-<label>Date</label>
+<label>Date</label><br>
 <input id="date" type="date">
 </div>
 
 <div>
-<label>Time</label>
+<label>Time</label><br>
 <input id="time" type="time">
 </div>
 
 <div>
-<label>Gnomon Height (cm)</label>
+<label>Gnomon Height (cm)</label><br>
 <input id="height" type="number" value="20">
 </div>
 
@@ -83,110 +93,158 @@ margin-top:15px;
 <br>
 
 <button onclick="drawBoard()">Draw Board</button>
-<button onclick="plotDaily()">Plot Daily Shadow</button>
-<button onclick="plotAnalemma()">Plot Analemma</button>
-<button onclick="observationWindow()">Observation Window</button>
 
-<p id="output"></p>
+<button onclick="plotDaily()">Plot Daily Shadow</button>
+
+<button onclick="plotAnalemma()">Plot Analemma</button>
+
+<div id="output"></div>
 
 <canvas id="board" width="700" height="500"></canvas>
 
 <script>
 
-const canvas=document.getElementById("board")
-const ctx=canvas.getContext("2d")
+let mode="daily"
 
-const latInput=document.getElementById("lat")
-const lonInput=document.getElementById("lon")
-const dateInput=document.getElementById("date")
-const timeInput=document.getElementById("time")
-const heightInput=document.getElementById("height")
-const output=document.getElementById("output")
+function showPage(m){
 
-let scale=10
+mode=m
 
-let boardW=29.7*scale
-let boardH=21*scale
+dailyBtn.classList.remove("active")
+analemmaBtn.classList.remove("active")
 
-let originX
-let originY
-let gx
-let gy
+if(m==="daily") dailyBtn.classList.add("active")
+else analemmaBtn.classList.add("active")
+
+drawBoard()
+
+}
+
+
 
 function dayOfYear(date){
+
 let start=new Date(date.getFullYear(),0,0)
-return Math.floor((date-start)/(1000*60*60*24))
+let diff=date-start
+let oneDay=1000*60*60*24
+
+return Math.floor(diff/oneDay)
+
 }
+
+
 
 function solarPosition(lat,lon,date,IST){
 
-let N=dayOfYear(date)
+let N = dayOfYear(date)
 
-let gamma=2*Math.PI/365*(N-1+(IST-12)/24)
+let gamma = 2*Math.PI/365 * (N - 1 + (IST - 12)/24)
 
-let dec=
+let EoT =
+229.18 * (
+0.000075
++ 0.001868*Math.cos(gamma)
+-0.032077*Math.sin(gamma)
+-0.014615*Math.cos(2*gamma)
+-0.040849*Math.sin(2*gamma)
+)
+
+let dec =
 0.006918
 -0.399912*Math.cos(gamma)
 +0.070257*Math.sin(gamma)
 -0.006758*Math.cos(2*gamma)
 +0.000907*Math.sin(2*gamma)
+-0.002697*Math.cos(3*gamma)
++0.00148*Math.sin(3*gamma)
 
-let timeOffset=4*(lon-82.5)
+let timeOffset=EoT+4*(lon-82.5)
 
 let tst=IST*60+timeOffset
 
 let H=tst/4-180
+
 let h=H*Math.PI/180
+
 let phi=lat*Math.PI/180
 
-let sinAlt=
-Math.sin(phi)*Math.sin(dec)+
+let sinAlt =
+Math.sin(phi)*Math.sin(dec) +
 Math.cos(phi)*Math.cos(dec)*Math.cos(h)
 
 let alt=Math.asin(sinAlt)
 
-let cosAz=
-(Math.sin(dec)-Math.sin(alt)*Math.sin(phi))/
+let cosAz =
+(Math.sin(dec)-Math.sin(alt)*Math.sin(phi)) /
 (Math.cos(alt)*Math.cos(phi))
 
 let az=Math.acos(cosAz)
 
 if(H>0) az=2*Math.PI-az
 
-return{alt,az}
+return {alt:alt,az:az}
 
 }
 
+
+
 function drawBoard(){
+
+let canvas=document.getElementById("board")
+let ctx=canvas.getContext("2d")
 
 ctx.clearRect(0,0,canvas.width,canvas.height)
 
-originX=(canvas.width-boardW)/2
-originY=(canvas.height-boardH)/2
+let scale=10
 
-ctx.strokeStyle="blue"
-ctx.strokeRect(originX,originY,boardW,boardH)
+let originX=80
+let originY=60
+
+let boardW
+let boardH
+
+let gx
+let gy
+
+
+if(mode==="daily"){
+
+boardW=29.7*scale
+boardH=21*scale
 
 gx=originX+(29.7-14.8)*scale
 gy=originY+14*scale
 
+}
+
+else{
+
+boardW=21*scale
+boardH=29.7*scale
+
+gx=originX+14*scale
+gy=originY+19.8*scale
+
+}
+
+
+ctx.strokeRect(originX,originY,boardW,boardH)
+
 ctx.fillStyle="red"
+
 ctx.beginPath()
 ctx.arc(gx,gy,5,0,2*Math.PI)
 ctx.fill()
 
+window.boardData={gx,gy,originX,originY,scale}
+
 }
 
-function insideBoard(px,py){
-return(
-px>originX &&
-px<originX+boardW &&
-py>originY &&
-py<originY+boardH
-)
-}
+
 
 function plotDaily(){
+
+if(mode!=="daily") return
 
 drawBoard()
 
@@ -194,20 +252,27 @@ let lat=parseFloat(latInput.value)
 let lon=parseFloat(lonInput.value)
 let height=parseFloat(heightInput.value)
 
-let d=new Date(dateInput.value)
+let dateStr=dateInput.value
+if(!dateStr) return
 
-ctx.strokeStyle="green"
+let d=new Date(dateStr)
+
+let ctx=board.getContext("2d")
+
+ctx.strokeStyle="blue"
+
 ctx.beginPath()
-
-let first=true
 
 for(let t=6*60;t<=18*60;t+=5){
 
-let IST=t/60
+let hour=Math.floor(t/60)
+let minute=t%60
+
+let IST=hour+minute/60
 
 let pos=solarPosition(lat,lon,d,IST)
 
-if(pos.alt<=0)continue
+if(pos.alt<=0) continue
 
 let L=height/Math.tan(pos.alt)
 
@@ -216,19 +281,10 @@ let saz=pos.az+Math.PI
 let x=L*Math.sin(saz)
 let y=L*Math.cos(saz)
 
-let px=gx+x*scale
-let py=gy-y*scale
+let px=boardData.gx+x*boardData.scale
+let py=boardData.gy-y*boardData.scale
 
-if(insideBoard(px,py)){
-
-if(first){
-ctx.moveTo(px,py)
-first=false
-}else{
 ctx.lineTo(px,py)
-}
-
-}
 
 }
 
@@ -236,7 +292,11 @@ ctx.stroke()
 
 }
 
+
+
 function plotAnalemma(){
+
+if(mode!=="analemma") return
 
 drawBoard()
 
@@ -244,8 +304,13 @@ let lat=parseFloat(latInput.value)
 let lon=parseFloat(lonInput.value)
 let height=parseFloat(heightInput.value)
 
-let t=timeInput.value.split(":")
+let timeStr=timeInput.value
+if(!timeStr) return
+
+let t=timeStr.split(":")
 let IST=parseFloat(t[0])+parseFloat(t[1])/60
+
+let ctx=board.getContext("2d")
 
 ctx.fillStyle="green"
 
@@ -256,7 +321,7 @@ d.setDate(N)
 
 let pos=solarPosition(lat,lon,d,IST)
 
-if(pos.alt<=0)continue
+if(pos.alt<=0) continue
 
 let L=height/Math.tan(pos.alt)
 
@@ -265,10 +330,8 @@ let saz=pos.az+Math.PI
 let x=L*Math.sin(saz)
 let y=L*Math.cos(saz)
 
-let px=gx+x*scale
-let py=gy-y*scale
-
-if(insideBoard(px,py)){
+let px=boardData.gx+x*boardData.scale
+let py=boardData.gy-y*boardData.scale
 
 ctx.beginPath()
 ctx.arc(px,py,2,0,2*Math.PI)
@@ -278,63 +341,13 @@ ctx.fill()
 
 }
 
-}
 
-function observationWindow(){
 
-let lat=parseFloat(latInput.value)
-let lon=parseFloat(lonInput.value)
-let height=parseFloat(heightInput.value)
-
-let d=new Date(dateInput.value)
-
-let start=null
-let end=null
-
-for(let t=6*60;t<=18*60;t++){
-
-let IST=t/60
-
-let pos=solarPosition(lat,lon,d,IST)
-
-if(pos.alt<=0)continue
-
-let L=height/Math.tan(pos.alt)
-
-let saz=pos.az+Math.PI
-
-let x=L*Math.sin(saz)
-let y=L*Math.cos(saz)
-
-let px=gx+x*scale
-let py=gy-y*scale
-
-if(insideBoard(px,py)){
-
-if(start===null)start=t
-end=t
-
-}
-
-}
-
-if(start===null){
-output.innerText="Shadow never fully inside board"
-return
-}
-
-let sh=Math.floor(start/60)
-let sm=start%60
-let eh=Math.floor(end/60)
-let em=end%60
-
-output.innerText=
-"Observation Window: "+
-sh+":"+String(sm).padStart(2,"0")+
-" → "+
-eh+":"+String(em).padStart(2,"0")
-
-}
+let latInput=document.getElementById("lat")
+let lonInput=document.getElementById("lon")
+let dateInput=document.getElementById("date")
+let timeInput=document.getElementById("time")
+let heightInput=document.getElementById("height")
 
 drawBoard()
 
@@ -342,3 +355,4 @@ drawBoard()
 
 </body>
 </html>
+
